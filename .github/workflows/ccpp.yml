@@ -1,0 +1,234 @@
+name: C/C++ CI
+on: [push, pull_request]
+
+jobs:
+
+  build-windows-mingw-dependencies:
+    name: Build Windows MinGW Dependencies
+    runs-on: windows-2019
+    steps:
+
+      - name: Download packages
+        shell: bash
+        run: |
+          mkdir downloads
+          cd downloads
+          curl -O -L https://github.com/brechtsanders/winlibs_mingw/releases/download/11.2.0-9.0.0-msvcrt-r6/winlibs-x86_64-posix-seh-gcc-11.2.0-mingw-w64-9.0.0-r6.zip
+          curl -O -L https://github.com/pkgconf/pkgconf/releases/download/pkgconf-1.0.1/pkgconf-1.0.1.tar.xz
+          curl -O -L https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.zip
+          curl -O -L https://gmplib.org/download/gmp/gmp-6.2.1.tar.xz
+          curl -O -L https://ftp.gnu.org/gnu/libtasn1/libtasn1-4.18.0.tar.gz
+          curl -O -L https://ftp.gnu.org/gnu/libunistring/libunistring-1.0.tar.gz
+          curl -O -L https://www.openssl.org/source/openssl-3.0.1.tar.gz
+          curl -O -L https://www.gnupg.org/ftp/gcrypt/gnutls/v3.6/gnutls-3.6.16.tar.xz
+          curl -O -L https://ftp.gnu.org/gnu/nettle/nettle-3.7.3.tar.gz
+          curl -O -L https://download.gnome.org/sources/glib-networking/2.62/glib-networking-2.62.4.tar.xz
+          curl -O -L https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protobuf-cpp-3.19.4.zip
+          curl -O -L https://sqlite.org/2022/sqlite-autoconf-3370200.tar.gz
+          curl -O -L https://taglib.org/releases/taglib-1.12.tar.gz
+          curl -O -L https://fftw.org/pub/fftw/fftw-3.3.5-dll64.zip
+          curl -O -L https://github.com/acoustid/chromaprint/releases/download/v1.5.1/chromaprint-1.5.1.tar.gz
+          curl -O -L https://files.strawberrymusicplayer.org/qtsparkle-qt6.pc
+          curl -O -L https://download.gnome.org/binaries/win32/dependencies/pkg-config_0.26-1_win32.zip
+
+
+      - name: Create sources directory
+        run: mkdir sources
+
+
+      - name: Install meson
+        working-directory: sources
+        run: pip3 --no-input install meson
+
+
+      - name: Extract mingw
+        working-directory: C:\
+        run: 7z x "${{github.workspace}}\downloads\winlibs-x86_64-posix-seh-gcc-11.2.0-mingw-w64-9.0.0-r6.zip"
+
+      - name: Add mingw64 to PATH
+        run: echo "c:\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+
+      - name: Extract Boost
+        working-directory: sources
+        run: |
+          7z x ..\downloads\boost_1_78_0.zip
+          copy boost_1_78_0\boost c:\mingw64\include\
+
+
+      - name: Extract pkg-config
+        working-directory: downloads
+        run: |
+          7z x pkg-config_0.26-1_win32.zip
+          copy bin\pkg-config.exe c:\mingw64\bin\
+
+
+      - name: Extract pkgconf
+        shell: bash
+        working-directory: sources
+        run: tar -xvf ../downloads/pkgconf-1.0.1.tar.xz
+
+
+      #- name: Compile pkgconf
+        #shell: bash
+        #working-directory: sources
+        #run: |
+          #which make
+          #echo $PATH
+          #set -x
+          #tar -xvf ../downloads/pkgconf-1.0.1.tar.xz
+          #cd pkgconf-1.0.1
+          #export PATH_BAK=$PATH
+          #export PATH=/c/mingw64/bin:/usr/bin:/c/ProgramData/Chocolatey/bin
+          #./configure --prefix=/c/mingw64
+          #make -j$(nproc)
+          #make install
+          #export PATH=$PATH_BAK
+          #cp /c/mingw64/bin/pkgconf /c/mingw64/bin/pkg-config
+
+
+      #- name: Compile pkgconf
+        #shell: bash
+        #working-directory: sources
+        #run: |
+          #which make
+          #echo $PATH
+          #set -x
+          #tar -xvf ../downloads/pkgconf-1.0.1.tar.xz
+          #cd pkgconf-1.0.1
+          #export PATH_BAK=$PATH
+          #export PATH=/c/mingw64/bin:/usr/bin:/c/ProgramData/Chocolatey/bin
+          #./configure --prefix=/c/mingw64
+          #make -j$(nproc)
+          #make install
+          #export PATH=$PATH_BAK
+          #cp /c/mingw64/bin/pkgconf /c/mingw64/bin/pkg-config
+
+
+      #- name: Compile pkgconf
+        #shell: bash
+        #env:
+          #PKG_CONFIG_PATH: /c/mingw64/lib/pkgconfig
+          #DESTDIR: c:/mingw64
+        #working-directory: sources
+        #run: |
+          #set -x
+          #git clone https://github.com/pkgconf/pkgconf.git
+          #cd pkgconf
+          #meson --debug -Dtests=false build
+          #cd build
+          #ninja
+          #DESTDIR=c:/mingw64 meson install
+
+
+      - name: Compile gmp
+        shell: bash
+        env:
+          PKG_CONFIG_PATH: /c/mingw64/lib/pkgconfig
+        working-directory: sources
+        run: |
+          export PATH=/c/mingw64/bin:$PATH
+          export PKG_CONFIG_PATH=
+          tar -xvf ../downloads/gmp-6.2.1.tar.xz
+          cd gmp-6.2.1
+          ./configure --prefix=/c/mingw64
+          make -j$(nproc)
+          make install
+
+
+      - name: Compile libtasn1
+        shell: bash
+        env:
+          PKG_CONFIG_PATH: /c/mingw64/lib/pkgconfig
+        working-directory: sources
+        run: |
+          export PATH=/c/mingw64/bin:$PATH
+          export PKG_CONFIG_PATH=/c/mingw64/lib/pkgconfig
+          tar -xvf ../downloads/libtasn1-4.18.0.tar.gz
+          cd libtasn1-4.18.0
+          ./configure --prefix=/c/mingw64
+          make -j$(nproc)
+          make install
+
+
+      - name: Compile TagLib
+        env:
+          PKG_CONFIG_PATH: /c/mingw64/lib/pkgconfig
+        working-directory: sources
+        run: |
+          tar -xvf ../downloads/taglib-1.12.tar.xz
+          cd taglib-1.12
+          mkdir build
+          cd build
+          cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="c:\mingw64" -DBUILD_SHARED_LIBS=ON
+          cmake --build .
+          cmake --install .
+
+
+      - name: Compile Chromaprint
+        env:
+          PKG_CONFIG_PATH: /c/mingw64/lib/pkgconfig
+        working-directory: sources
+        run: |
+          tar -xvf ../downloads/chromaprint-1.5.1.tar.gz
+          cd chromaprint-1.5.1
+          mkdir build
+          cd build
+          cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DFFMPEG_ROOT=C:\mingw64 -DCMAKE_INSTALL_PREFIX=c:\mingw64
+          cmake --build .
+          cmake --install .
+
+
+      - name: Compile glib-networking
+        env:
+          PKG_CONFIG_PATH: /c/mingw64/lib/pkgconfig
+        working-directory: sources
+        run: |
+          echo "c:\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          pip3 install meson
+          tar -xvf ../downloads/glib-networking-2.62.4.tar.xz
+          cd glib-networking-2.62.4
+          meson -Dgnutls=enabled -Dpkg_config_path=c:\mingw64\lib\pkgconfig build
+          cd build
+          ninja
+
+
+      - name: Compile qtsparkle
+        env:
+          PKG_CONFIG_PATH: /c/mingw64/lib/pkgconfig
+        working-directory: sources
+        run: |
+          git clone https://github.com/davidsansome/qtsparkle
+          cd qtsparkle
+          mkdir build
+          cd build
+          cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DBUILD_WITH_QT6=ON -DBUILD_SHARED_LIBS=OFF -DCMAKE_PREFIX_PATH=c:\qt\6.2.3\msvc2019_64\lib\cmake -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/qtsparkle"
+          cmake --build .
+          cmake --install .
+          cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DBUILD_WITH_QT6=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_PREFIX_PATH=c:\qt\6.2.3\msvc2019_64\lib\cmake -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/qtsparkle"
+          cmake --build .
+          cmake --install .
+
+
+  upload-windows-dependencies:
+    name: Upload Windows Dependencies
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    needs:
+      - build-windows-mingw-dependencies
+    steps:
+      - uses: actions/checkout@v1.2.0
+      - uses: actions/download-artifact@v2
+        with:
+          path: uploads
+      - name: Install SSH keys
+        uses: shimataro/ssh-key-action@v2
+        with:
+          known_hosts: ${{ secrets.KNOWN_HOSTS2 }}
+          key: ${{ secrets.SSH_KEY }}
+      #- name: rsync
+      #  run: |
+      #    set -x
+      #    for i in $(find uploads -type f -name 'windows-mingw-dependencies.zip'); do
+      #      rsync -e "ssh -p 50220 -o StrictHostKeyChecking=no" -va $i travis@echoes.jkvinge.net:/home/travis/builds/windows/
+      #    done
